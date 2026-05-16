@@ -160,7 +160,17 @@ var app = builder.Build();
 // ----------------------------------------------------------------------------
 
 app.UseExceptionHandler();
-app.UseStatusCodePages();
+app.UseStatusCodePages(context =>
+{
+    // Return empty body for 404s (and other status codes without response body).
+    // Exceptions still go through ExceptionHandler middleware above.
+    if (context.HttpContext.Response.StatusCode == 404 && !context.HttpContext.Response.HasStarted)
+    {
+        context.HttpContext.Response.ContentType = "text/plain";
+        context.HttpContext.Response.ContentLength = 0;
+    }
+    return Task.CompletedTask;
+});
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
