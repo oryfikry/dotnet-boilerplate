@@ -1,5 +1,10 @@
 Berikut adalah dokumen **Product Requirements Document (PRD) Final** yang merangkum seluruh arsitektur, filosofi, dan spesifikasi teknis. Dokumen ini dirancang dengan struktur yang sangat deterministik agar dapat dieksekusi langsung oleh ekosistem *multi-agent AI* maupun tim *engineer* manusia, memastikan sinkronisasi kode yang presisi dengan *overhead* serendah mungkin.
 
+> Versi 2.2 menerima ADR-0001 (multi-provider database). Kunci kebijakan:
+> SQLite menjadi default untuk *zero-config quickstart*, sementara PostgreSQL,
+> SQL Server, dan MySQL tetap *first-class* dan dapat diaktifkan via
+> `Database:Provider` tanpa kompilasi ulang.
+>
 > Versi 2.1 menambal gap dari v2.0: kunci versi dependensi, sikap AOT/MediatR, detail otorisasi & transaksi, strategi invalidasi cache, *cross-cutting concerns*, *canonical slice example*, *Definition of Done* per *slice*, dan *escape hatches* terkontrol.
 
 ---
@@ -8,7 +13,7 @@ Berikut adalah dokumen **Product Requirements Document (PRD) Final** yang merang
 
 **Project Name:** .NET 10 Ultimate Boilerplate (VSA Edition)
 **Target Framework:** .NET 10.0 (LTS) & C# 14
-**Document Version:** 2.1 (Final, Hardened)
+**Document Version:** 2.2 (Final, Hardened, Multi-Provider DB)
 **Target Audience:** AI Agent Orchestrators, Backend Developers, System Architects
 
 ## 1. Ringkasan Eksekutif (Executive Summary)
@@ -33,9 +38,10 @@ Proyek ini membangun *starter template backend* "batteries-included" berbasis .N
 | **Bahasa** | C# | `14` | Fitur preview dimatikan secara default. |
 | **Pola Komunikasi** | `MediatR` | `12.4.*` | CQRS dispatcher + *pipeline behaviors*. Lihat §3.2 untuk catatan AOT/lisensi. |
 | **Validasi** | `FluentValidation` | `11.*` | Eksekusi via MediatR `ValidationBehavior`. |
-| **Akses Data (Command)** | `Microsoft.EntityFrameworkCore` | `10.*` | *Write* (Insert/Update/Delete) + migrasi. Provider: `Npgsql.EntityFrameworkCore.PostgreSQL`. |
-| **Akses Data (Query)** | `Dapper` | `2.1.*` | *Read* via `IDbConnectionFactory` (Npgsql). |
-| **Database** | PostgreSQL | `16+` | Single relational DB. |
+| **Akses Data (Command)** | `Microsoft.EntityFrameworkCore` | `10.0.8` | *Write* (Insert/Update/Delete) + migrasi. Multi-provider — lihat tabel §3.1.1. |
+| **Akses Data (Query)** | `Dapper` | `2.1.*` | *Read* via `IDbConnectionFactory` (per-provider ADO driver). |
+| **Database (default)** | SQLite | bundled (`10.0.8`) | Default *zero-config* untuk quickstart & demo (ADR-0001). |
+| **Database (alt)** | PostgreSQL / SQL Server / MySQL | `16+` / `2022+` / `8.x` | Opsi *first-class*, dipilih via `Database:Provider`. ADR-0001. |
 | **Auth** | `Microsoft.AspNetCore.Authentication.JwtBearer` | `10.*` | JWT + custom permission filter (§4.1). |
 | **Caching** | `StackExchange.Redis` + `Microsoft.Extensions.Caching.Memory` | terbaru stabil | L1 in-memory, L2 Redis, L3 DB fallback. |
 | **Resilience** | `Polly` | `8.*` | `ResiliencePipeline` per dependensi. |
@@ -46,6 +52,25 @@ Proyek ini membangun *starter template backend* "batteries-included" berbasis .N
 | **Health Checks** | `AspNetCore.HealthChecks.*` | terbaru stabil | `/health/live`, `/health/ready` (§9.5). |
 
 > Semua versi di atas dikunci di `Directory.Packages.props` (Central Package Management). AI agent dilarang menambah package di luar daftar ini tanpa update PRD.
+
+### 3.1.1 Provider Database (ADR-0001)
+
+Empat provider didukung, dipilih via `Database:Provider` di `appsettings.{Environment}.json`:
+
+| Provider | `Database:Provider` | EF Provider | ADO Provider | Migrations Folder | Default? |
+|---|---|---|---|---|---|
+| SQLite | `Sqlite` | `Microsoft.EntityFrameworkCore.Sqlite 10.0.8` | `Microsoft.Data.Sqlite 10.0.8` | `Infrastructure/Data/Migrations/Sqlite/` | ✅ |
+| PostgreSQL | `Postgres` | `Npgsql.EntityFrameworkCore.PostgreSQL 10.0.0` | `Npgsql 10.0.0` | `Infrastructure/Data/Migrations/` (root) | |
+| SQL Server | `SqlServer` | `Microsoft.EntityFrameworkCore.SqlServer 10.0.8` | `Microsoft.Data.SqlClient 7.0.0` | `Infrastructure/Data/Migrations/SqlServer/` | |
+| MySQL | `MySql` | `MySql.EntityFrameworkCore 10.0.7` (Oracle) | `MySqlConnector 2.5.0` | `Infrastructure/Data/Migrations/MySql/` | |
+
+Connection string diresolusi dari `ConnectionStrings:{Provider}` lalu fallback ke `ConnectionStrings:Default`.
+
+**Implikasi untuk slice baru:**
+
+- Hindari literal SQL spesifik provider dalam Dapper handler (`FALSE`, `RETURNING`, `::cast`, `TOP`, dll). Pakai parameter (`@IsDeleted`) atau ANSI SQL.
+- Pakai `HasPrecision(...)` di `EntityConfigurations`, bukan `HasColumnType("numeric(18,4)")`.
+- Setiap perubahan skema = 4 migrasi (`SqliteDbContext`, `SqlServerDbContext`, `MySqlDbContext`, dan `AppDbContext` untuk Postgres). Lihat `docs/adr/0001-multi-provider-database.md` untuk detail.
 
 ### 3.2 Sikap terhadap AOT & Pilihan MediatR
 

@@ -6,40 +6,25 @@ using Microsoft.Extensions.Configuration;
 namespace Api.Infrastructure.Data;
 
 /// <summary>
-/// Design-time factory used by the EF Core CLI (<c>dotnet ef</c>) to construct
-/// an <see cref="AppDbContext"/> outside the host pipeline.
+/// Design-time factory used by <c>dotnet ef</c> for PostgreSQL migrations.
 ///
-/// Reads <c>ConnectionStrings:Postgres</c> from <c>appsettings.json</c> /
-/// <c>appsettings.Development.json</c> / environment variables / user secrets.
-/// Falls back to a local docker-compose default so newcomers can run
-/// <c>dotnet ef migrations add</c> without configuration.
+/// Bound to the base <see cref="AppDbContext"/> directly (not a subclass) to
+/// preserve the historical migration <c>20260516074807_Initial</c> at
+/// <c>Infrastructure/Data/Migrations/</c>. See ADR-0001 for rationale.
+///
+/// Reads <c>ConnectionStrings:Postgres</c>, then <c>ConnectionStrings:Default</c>,
+/// falling back to a local docker-compose default.
 /// </summary>
 internal sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
-    private const string FallbackConnectionString =
-        "Host=localhost;Port=5432;Database=pbac;Username=pbac;Password=pbac";
+    public const string FallbackConnectionString =
+        "Host=localhost;Port=5433;Database=pbac;Username=pbac;Password=pbac";
 
     public AppDbContext CreateDbContext(string[] args)
     {
-        var basePath = Directory.GetCurrentDirectory();
-        if (!File.Exists(Path.Combine(basePath, "appsettings.json")))
-        {
-            // When invoked from the repo root via `--project src\Api`, the
-            // EF tools set CWD to src\Api; but if invoked from elsewhere fall
-            // back to that path.
-            var apiDir = Path.Combine(basePath, "src", "Api");
-            if (Directory.Exists(apiDir)) basePath = apiDir;
-        }
-
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(basePath)
-            .AddJsonFile("appsettings.json", optional: true)
-            .AddJsonFile("appsettings.Development.json", optional: true)
-            .AddUserSecrets<AppDbContext>(optional: true)
-            .AddEnvironmentVariables()
-            .Build();
-
-        var connectionString = configuration.GetConnectionString("Postgres") ?? FallbackConnectionString;
+        var configuration = DesignTimeConfiguration.Build();
+        var connectionString = DesignTimeConfiguration.ResolveConnectionString(
+            configuration, DatabaseProvider.Postgres, FallbackConnectionString);
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(connectionString, o => o.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName))

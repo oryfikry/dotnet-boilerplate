@@ -1,0 +1,25 @@
+<Project>
+
+  <!--
+    Tests inherit the root Directory.Build.props but relax some hard rules
+    that are noisy and uninteresting in test code. We still keep nullable
+    + implicit usings + analyzers.
+  -->
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!--
+      Tests intentionally use:
+        - empty-catch / unused locals (test scaffolds),
+        - hard-coded literals (cred fixtures),
+        - string concatenation in assertion failures.
+    -->
+    <NoWarn>$(NoWarn);CA1707;CA1859;CA2007;CA1822;CS1591;IDE0058;CA1515;CA5394;CA1303;CA1812;CA1062;CA1305</NoWarn>
+  </PropertyGroup>
+
+</Project>

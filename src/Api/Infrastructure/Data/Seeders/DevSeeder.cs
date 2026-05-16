@@ -7,8 +7,11 @@ namespace Api.Infrastructure.Data.Seeders;
 /// <summary>
 /// Seeds Permissions and a demo user for the <c>Development</c> environment.
 ///
-/// PRD v2.1 §9.7 — production migrations are managed out of band, and the
+/// PRD v2.2 §9.7 — production migrations are managed out of band, and the
 /// seeder runs only when <c>IHostEnvironment.IsDevelopment()</c> is true.
+///
+/// In Development the seeder also applies any pending EF Core migrations
+/// for the configured provider (ADR-0001).
 /// </summary>
 internal static class DevSeeder
 {
@@ -23,7 +26,10 @@ internal static class DevSeeder
 
     public static async Task SeedAsync(AppDbContext db, IPasswordHasher hasher, CancellationToken ct = default)
     {
-        await db.Database.EnsureCreatedAsync(ct);
+        // Apply any pending migrations for the configured provider. Each
+        // provider has its own migrations folder bound to its own DbContext
+        // subclass — see ADR-0001.
+        await db.Database.MigrateAsync(ct);
 
         // Permissions
         var existingPermNames = await db.Permissions

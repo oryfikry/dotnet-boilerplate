@@ -14,7 +14,7 @@ internal sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         b.Property(x => x.Id).HasColumnName("id");
         b.Property(x => x.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
         b.Property(x => x.Sku).HasColumnName("sku").HasMaxLength(64).IsRequired();
-        b.Property(x => x.Price).HasColumnName("price").HasColumnType("numeric(18,4)");
+        b.Property(x => x.Price).HasColumnName("price").HasPrecision(18, 4);
 
         b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
         b.Property(x => x.CreatedBy).HasColumnName("created_by");

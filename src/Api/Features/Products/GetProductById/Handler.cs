@@ -31,7 +31,7 @@ internal sealed class GetProductByIdHandler(
                 created_at_utc  AS CreatedAtUtc
         FROM    products
         WHERE   id = @Id
-          AND   is_deleted = FALSE;
+          AND   is_deleted = @IsDeleted;
         """;
 
     public async Task<ProductDto?> Handle(GetProductByIdQuery query, CancellationToken ct)
@@ -56,7 +56,11 @@ internal sealed class GetProductByIdHandler(
     private async Task<ProductDto?> LoadFromDbAsync(Guid id, CancellationToken ct)
     {
         await using var connection = await connectionFactory.CreateOpenConnectionAsync(ct);
-        var command = new CommandDefinition(Sql, new { Id = id }, cancellationToken: ct);
+        // Parameterized predicate so the bool literal is provider-portable
+        // (PostgreSQL: TRUE/FALSE, SQLite/SQL Server/MySQL: 1/0). Each ADO
+        // mapper handles the cast natively. ADR-0001.
+        // ⚠️ DO NOT use literal TRUE/FALSE in SQL — breaks SQLite/MySQL.
+        var command = new CommandDefinition(Sql, new { Id = id, IsDeleted = false }, cancellationToken: ct);
         return await connection.QuerySingleOrDefaultAsync<ProductDto>(command);
     }
 }

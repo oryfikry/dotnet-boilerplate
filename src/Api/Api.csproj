@@ -21,16 +21,33 @@
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
   </ItemGroup>
 
-  <ItemGroup Label="EF Core / Dapper (M2)">
+  <ItemGroup Label="EF Core core (M2)">
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
-    <PackageReference Include="Npgsql" />
     <PackageReference Include="Dapper" />
+  </ItemGroup>
+
+  <!--
+    Multi-provider database support (ADR-0001). All four providers ship in the box
+    so any user can switch via Database:Provider in appsettings without recompile.
+    Default provider: Sqlite.
+  -->
+  <ItemGroup Label="EF Core providers">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="MySql.EntityFrameworkCore" />
+  </ItemGroup>
+
+  <ItemGroup Label="ADO.NET providers (Dapper backends)">
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="MySqlConnector" />
   </ItemGroup>
 
   <ItemGroup Label="Cache / Resilience (M3)">

@@ -1,7 +1,7 @@
 <Project>
 
   <!--
-    Central Package Management — pinned versions per PRD v2.1 §3.1.
+    Central Package Management — pinned versions per PRD v2.2 §3.1.
     Projects reference packages by name; versions live here.
     Adding packages requires updating PRD or filing an ADR.
   -->
@@ -20,13 +20,30 @@
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
   </ItemGroup>
 
-  <ItemGroup Label="EF Core / Dapper (Milestone 2)">
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
-    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
-    <PackageVersion Include="Npgsql" Version="10.0.0" />
+  <!--
+    EF Core / Database providers (Milestone 2 + Multi-provider extension, ADR-0001).
+    All Microsoft EF packages MUST stay on the same 10.0.x patch level.
+    Pomelo MySQL has no EF10 release as of May 2026 — using Oracle's MySql.EntityFrameworkCore.
+  -->
+  <ItemGroup Label="EF Core core">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.8" />
     <PackageVersion Include="Dapper" Version="2.1.66" />
+  </ItemGroup>
+
+  <ItemGroup Label="EF Core providers (multi-DB)">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.8" />
+    <PackageVersion Include="MySql.EntityFrameworkCore" Version="10.0.7" />
+  </ItemGroup>
+
+  <ItemGroup Label="ADO.NET providers (Dapper backends)">
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.8" />
+    <PackageVersion Include="Npgsql" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.0.0" />
+    <PackageVersion Include="MySqlConnector" Version="2.5.0" />
   </ItemGroup>
 
   <ItemGroup Label="Cache / Resilience (Milestone 3)">
@@ -40,7 +57,7 @@
   </ItemGroup>
 
   <!--
-    Reserved for Milestones 4–5. Uncomment per milestone PR.
+    Reserved for Milestone 5. Uncomment per milestone PR.
 
   <ItemGroup Label="Health Checks (Milestone 5)">
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
@@ -55,6 +72,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.10.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0" />
   </ItemGroup>
+  -->
 
   <ItemGroup Label="Testing (Milestone 4)">
     <PackageVersion Include="xunit" Version="2.9.2" />
@@ -63,10 +81,8 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
     <PackageVersion Include="Testcontainers" Version="4.1.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.1.0" />
-    <PackageVersion Include="Testcontainers.Redis" Version="4.1.0" />
     <PackageVersion Include="Shouldly" Version="4.2.1" />
-    <PackageVersion Include="WireMock.Net" Version="1.6.6" />
+    <PackageVersion Include="Respawn" Version="6.2.1" />
   </ItemGroup>
-  -->
 
 </Project>

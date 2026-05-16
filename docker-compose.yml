@@ -1,29 +1,17 @@
 # Local-development orchestration for dotnet-pbac-boilerplate.
-# Start with: docker compose up -d
-# Used by: Postgres (CQRS write/read), Redis (cache), OTel collector.
+#
+# Default boilerplate uses SQLite — no services required (PRD v2.2 §3.1, ADR-0001).
+# Spin up infrastructure ONLY when switching providers via Database:Provider:
+#
+#   docker compose up -d redis                       # M3 cache (always available)
+#   docker compose --profile postgres  up -d         # Postgres provider
+#   docker compose --profile sqlserver up -d         # SQL Server provider
+#   docker compose --profile mysql     up -d         # MySQL provider
 #
 # In CI/test runs, prefer Testcontainers (Milestone 4) — this file is for
 # manual local development only.
 
 services:
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: pbac-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: pbac
-      POSTGRES_PASSWORD: pbac
-      POSTGRES_DB: pbac
-    ports:
-      - "5433:5432"
-    volumes:
-      - pbac-postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pbac -d pbac"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -38,6 +26,65 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: pbac-postgres
+    restart: unless-stopped
+    profiles: ["postgres", "all"]
+    environment:
+      POSTGRES_USER: pbac
+      POSTGRES_PASSWORD: pbac
+      POSTGRES_DB: pbac
+    ports:
+      - "5433:5432"
+    volumes:
+      - pbac-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pbac -d pbac"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: pbac-sqlserver
+    restart: unless-stopped
+    profiles: ["sqlserver", "all"]
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Pbac!Local123"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - pbac-sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Pbac!Local123' -C -Q 'SELECT 1' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  mysql:
+    image: mysql:8.4
+    container_name: pbac-mysql
+    restart: unless-stopped
+    profiles: ["mysql", "all"]
+    command: ["--default-authentication-plugin=caching_sha2_password"]
+    environment:
+      MYSQL_ROOT_PASSWORD: pbac-root
+      MYSQL_DATABASE: pbac
+      MYSQL_USER: pbac
+      MYSQL_PASSWORD: pbac
+    ports:
+      - "3306:3306"
+    volumes:
+      - pbac-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-upbac", "-ppbac"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   # Placeholder — OTel collector is wired in Milestone 5.
   # Uncomment when implementing observability.
@@ -55,3 +102,5 @@ services:
 volumes:
   pbac-postgres-data:
   pbac-redis-data:
+  pbac-sqlserver-data:
+  pbac-mysql-data:

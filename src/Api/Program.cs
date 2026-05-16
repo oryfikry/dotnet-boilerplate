@@ -11,7 +11,6 @@ using Api.Infrastructure.Security;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 
@@ -49,31 +48,8 @@ builder.Services.AddMediatR(cfg =>
 
 builder.Services.AddValidatorsFromAssemblyContaining<Program>(includeInternalTypes: true);
 
-// ---- M2: Data layer ---------------------------------------------------------
-builder.Services
-    .AddOptions<DatabaseOptions>()
-    .Configure<IConfiguration>((opts, config) =>
-        opts.ConnectionString = config.GetConnectionString("Postgres"));
-
-builder.Services.AddDbContext<AppDbContext>((sp, options) =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("Postgres")
-        ?? throw new InvalidOperationException(
-            "ConnectionStrings:Postgres is not configured. " +
-            "Run `docker compose up -d` and set the value in appsettings.Development.json " +
-            "or via `dotnet user-secrets set ConnectionStrings:Postgres ...`.");
-
-    options.UseNpgsql(connectionString, npg =>
-        npg.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
-
-    if (builder.Environment.IsDevelopment())
-    {
-        options.EnableDetailedErrors();
-        options.EnableSensitiveDataLogging();
-    }
-});
-
-builder.Services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
+// ---- M2: Data layer (multi-provider, ADR-0001) ------------------------------
+builder.Services.AddAppDatabase(builder.Configuration, builder.Environment);
 
 // ---- M3: Caching (PRD §4.2) -------------------------------------------------
 builder.Services
@@ -131,34 +107,51 @@ builder.Services
 builder.Services.AddAuthorization();
 
 // ---- M3: Rate limiting (PRD §9.4) ------------------------------------------
-builder.Services.AddRateLimiter(opts =>
+// Tests opt out via "RateLimiting:Enabled=false" so login/refresh suites can
+// run in tight loops without hitting the 10/min "sensitive" policy. Production
+// and Development always have rate limiting on.
+var rateLimitingEnabled = builder.Configuration.GetValue("RateLimiting:Enabled", true);
+if (rateLimitingEnabled)
 {
-    opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    builder.Services.AddRateLimiter(opts =>
+    {
+        opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    // Default global policy: 100 req/min per IP, fixed window.
-    opts.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "anon",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 100,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
-                AutoReplenishment = true,
-            }));
+        // Default global policy: 100 req/min per IP, fixed window.
+        opts.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "anon",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 100,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true,
+                }));
 
-    // Sensitive policy (login / refresh): 10 req/min per IP.
-    opts.AddPolicy("sensitive", http =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "anon",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 10,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
-                AutoReplenishment = true,
-            }));
-});
+        // Sensitive policy (login / refresh): 10 req/min per IP.
+        opts.AddPolicy("sensitive", http =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "anon",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true,
+                }));
+    });
+}
+else
+{
+    // No-op limiter so endpoints with .RequireRateLimiting("sensitive") still
+    // resolve a policy in the pipeline (otherwise startup throws). The "sensitive"
+    // policy here grants effectively unlimited permits.
+    builder.Services.AddRateLimiter(opts =>
+    {
+        opts.AddPolicy("sensitive", _ => RateLimitPartition.GetNoLimiter("noop"));
+    });
+}
 
 var app = builder.Build();
 

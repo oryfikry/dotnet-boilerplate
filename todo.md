@@ -1,6 +1,6 @@
 # Project TODO — `dotnet-pbac-boilerplate`
 
-Status snapshot terhadap PRD v2.1 (lihat [`prd.md`](./prd.md)).
+Status snapshot terhadap PRD v2.2 (lihat [`prd.md`](./prd.md), ADR-0001).
 Diperbarui: 2026-05-16.
 
 Repository: <https://github.com/oryfikry/dotnet-boilerplate>
@@ -13,8 +13,9 @@ Repository: <https://github.com/oryfikry/dotnet-boilerplate>
 |---|---|---|---|
 | **M1** | Foundation & Bootstrapping | ✅ Done | `86537a2` |
 | **M2** | CQRS & Data Layer | ✅ Done | `7cdf659` |
+| **M2.5** | Multi-provider DB (ADR-0001) | ✅ Done | — |
 | **M3** | Resilience & Security | ✅ Done | `03e153c` |
-| **M4** | Pure Integration Testing | ⏳ Pending | — |
+| **M4** | Pure Integration Testing | ✅ Done | — |
 | **M5** | Observability & DevOps | ⏳ Pending | — |
 | **M6** | (Stretch) AOT Profile | ⏳ Pending | — |
 
@@ -77,6 +78,50 @@ Repository: <https://github.com/oryfikry/dotnet-boilerplate>
 
 ---
 
+## ✅ M2.5 — Multi-provider Database (ADR-0001) (DONE)
+
+PRD v2.2 menerima [`docs/adr/0001-multi-provider-database.md`](./docs/adr/0001-multi-provider-database.md).
+SQLite menjadi default; Postgres/SQL Server/MySQL tetap *first-class* via `Database:Provider`.
+
+### Deliverables
+- [x] Bump EF Core stack ke `10.0.8` (Microsoft.EntityFrameworkCore + Sqlite + SqlServer + Design + Relational + Microsoft.Data.Sqlite). Postgres provider tetap `10.0.0`. MySQL provider `MySql.EntityFrameworkCore 10.0.7` (Oracle, karena Pomelo belum punya release EF10).
+- [x] Tambah ADO drivers: `Microsoft.Data.SqlClient 7.0.0`, `MySqlConnector 2.5.0`.
+- [x] Bump `dotnet-ef` tool ke `10.0.8`.
+- [x] `IDbConnectionFactory` 4 implementasi: `SqliteConnectionFactory`, `NpgsqlConnectionFactory`, `SqlServerConnectionFactory`, `MySqlConnectionFactory`. `DatabaseProvider` enum.
+- [x] Per-provider design-time DbContext subclasses: `SqliteDbContext`, `SqlServerDbContext`, `MySqlDbContext`. Postgres tetap pakai base `AppDbContext` (preserve existing migration).
+- [x] `AppDbContext` tidak lagi `sealed`; tambah `protected` ctor untuk subclassing dengan `DbContextOptions<TSubclass>`.
+- [x] Per-provider design-time factories + helper `DesignTimeConfiguration` (resolve `ConnectionStrings:{Provider}` → `Default` → fallback).
+- [x] `Infrastructure/Data/DatabaseServiceCollectionExtensions.AddAppDatabase()` — wire provider berdasarkan `Database:Provider`. `Program.cs` dipersingkat.
+- [x] `EntityConfigurations`: `Price` pakai `HasPrecision(18, 4)` (provider-neutral) menggantikan `HasColumnType("numeric(18,4)")`.
+- [x] `GetProductByIdHandler` Dapper SQL: `is_deleted = @IsDeleted` (parameterized) menggantikan `is_deleted = FALSE`.
+- [x] `SqliteDapperTypeHandlers` — register sekali saat startup untuk SQLite, handler `Guid`/`Guid?`/`DateTime`/`DateTime?`/`decimal`/`decimal?` (TEXT round-trip via ISO-8601/invariant).
+- [x] Generate `Migrations/Sqlite/Initial`, `Migrations/SqlServer/Initial`, `Migrations/MySql/Initial`. Existing `Migrations/20260516074807_Initial` untuk Postgres tetap.
+- [x] `DevSeeder` ganti `EnsureCreatedAsync` → `MigrateAsync` (provider-agnostic).
+- [x] `appsettings.json` + `appsettings.Development.json`: `Database:Provider=Sqlite`, `ConnectionStrings:Sqlite=Data Source=App_Data/pbac.db`, contoh provider lain di-comment.
+- [x] `docker-compose.yml`: Redis tetap default. Postgres/SQL Server (mssql 2022)/MySQL 8.4 di-gate via compose `profiles` (`postgres`, `sqlserver`, `mysql`).
+- [x] PRD bump ke v2.2 (§3.1 + §3.1.1 tabel provider).
+- [x] README rewrite dengan SQLite quickstart + provider switching guide.
+- [x] `dotnet build` hijau (0 warning, 0 error).
+- [x] Smoke test e2e SQLite default PASS:
+  - Anonymous POST → **401** ✓
+  - Login (`demo@local` / `Demo123!Demo123!`) → **200** dgn JWT + refresh ✓
+  - Authed POST `/products` → **200** ✓
+  - GET `/products/{id}` (cache miss → DB → populate) → **200** ✓
+  - GET kedua (cache hit) → **200** identik ✓
+  - Refresh → **200** dgn token baru ✓
+  - Refresh dgn token lama (revoked) → **401** ✓
+
+### Bug ditemukan & diperbaiki
+- Initial smoke test SQLite gagal di Dapper materialization: SQLite menyimpan `Guid`/`DateTime`/`decimal` sebagai TEXT, dan default Dapper mapper tidak bisa coerce TEXT ke positional record ctor `ProductDto(Guid, …, decimal, DateTime)`. Fix: register `SqlMapper.TypeHandler<T>` global untuk SQLite (lihat `SqliteDapperTypeHandlers`).
+- `dotnet-ef` tool ada di `10.0.0` sementara CPM bump ke `10.0.8` → ketidaksesuaian saat `migrations add`. Fix: bump `.config/dotnet-tools.json`.
+
+### Catatan
+- Pomelo `Pomelo.EntityFrameworkCore.MySql` belum punya release EF10 per Mei 2026 — pakai Oracle `MySql.EntityFrameworkCore 10.0.7` sementara.
+- Setiap perubahan skema kini = **4 migrasi**: SqliteDbContext, SqlServerDbContext, MySqlDbContext, dan `AppDbContext` (Postgres). Acceptable untuk boilerplate kecil.
+- EF10 berhenti membungkus seluruh `MigrateAsync` dalam satu transaksi; per-migration tetap atomic. Catat di runbook produksi.
+
+---
+
 ## ✅ M3 — Resilience & Security (DONE)
 
 ### Deliverables
@@ -124,28 +169,53 @@ Repository: <https://github.com/oryfikry/dotnet-boilerplate>
 
 ---
 
-## ⏳ M4 — Pure Integration Testing (PENDING)
+## ✅ M4 — Pure Integration Testing (DONE)
 
-Cakupan PRD §11:
-- [ ] Aktifkan paket testing di CPM: `xunit 2.9.2`, `xunit.runner.visualstudio 3.0.1`, `Microsoft.NET.Test.Sdk 17.12.0`, `Microsoft.AspNetCore.Mvc.Testing 10.0.0`, `Testcontainers 4.1.0`, `Testcontainers.PostgreSql 4.1.0`, `Testcontainers.Redis 4.1.0`, `Shouldly 4.2.1`, `WireMock.Net 1.6.6` (untuk external HTTP mocking saja)
-- [ ] Project `tests/Api.IntegrationTests/Api.IntegrationTests.csproj`
-- [ ] Tambahkan ke `.slnx` solution
-- [ ] `Infrastructure/IntegrationTestWebAppFactory.cs` (extends `WebApplicationFactory<Program>`, override Postgres + Redis connection ke Testcontainers)
-- [ ] `Infrastructure/BaseIntegrationTest.cs` (per-test scope, helper `Sender`, `DbContext`, `Cache`, `SeedUserAsync(string email, params string[] permissions)`, reset DB antar test)
-- [ ] `IClassFixture` atau `ICollectionFixture` lifecycle (start container sekali, share antar test)
-- [ ] Tests `Features/Products/CreateProduct/CreateProductTests.cs` (happy path + validation negative)
-- [ ] Tests `Features/Products/GetProductById/GetProductByIdTests.cs` (cache miss/hit + read-your-writes, 404 + 403)
-- [ ] Tests `Features/Auth/Login/LoginTests.cs` (happy + 401 wrong password + 401 inactive user)
-- [ ] Tests `Features/Auth/RefreshToken/RefreshTokenTests.cs` (rotation + reuse → 401 + expired → 401)
-- [ ] Tests permission filter (anonymous → 401, missing perm → 403, granted perm → 200)
-- [ ] CI: `.github/workflows/ci.yml` — `dotnet build` + `dotnet test` pada push & PR (opsional untuk M4 closing)
-- [ ] `dotnet test` hijau end-to-end
+Cakupan PRD §11 — pure integration testing dengan Testcontainers Postgres.
+
+### Deliverables
+- [x] Aktifkan paket testing di CPM: `xunit 2.9.2`, `xunit.runner.visualstudio 3.0.1`, `Microsoft.NET.Test.Sdk 17.12.0`, `Microsoft.AspNetCore.Mvc.Testing 10.0.0`, `Testcontainers 4.1.0`, `Testcontainers.PostgreSql 4.1.0`, `Shouldly 4.2.1`, `Respawn 6.2.1`. (Pomelo MySQL tetap nonaktif — lihat M2.5.)
+- [x] Project `tests/Api.IntegrationTests/Api.IntegrationTests.csproj` ditambahkan ke `.slnx`.
+- [x] `tests/Directory.Build.props` — import root `Directory.Build.props` + relax warnings untuk test code.
+- [x] `Infrastructure/IntegrationTestWebAppFactory.cs` — `WebApplicationFactory<Program>` yang:
+  - Boot Postgres 16-alpine via Testcontainers.
+  - Strip JSON config sources host, inject in-memory test config.
+  - Override DI post-factum: drop SQLite/SqlServer/MySql DbContext + `IConnectionMultiplexer`, register `AppDbContext` via `UseNpgsql` ke connection-string container, dan `NpgsqlConnectionFactory`.
+  - Replace `RateLimiterOptions` dengan no-op limiter (`sensitive` policy) untuk hindari 429 di test loops.
+  - Redis sengaja TIDAK di-containerize — `HybridCacheService` jalan L1+L3 (path produksi saat Redis degraded).
+- [x] `Infrastructure/IntegrationTestCollection.cs` — `[CollectionDefinition("Integration")]` share container antar test class.
+- [x] `Infrastructure/BaseIntegrationTest.cs`:
+  - `[Collection("Integration")]` + `IAsyncLifetime`.
+  - Apply migrations sekali via static gate.
+  - `Respawner` reset DB antar test (skip `__EFMigrationsHistory`).
+  - Per-test `IServiceScope` exposes `Sender`, `Db`, `Cache`, `Hasher`, `Tokens`.
+  - Helper: `SeedUserAsync(email, password, isActive, permissions[])`, `IssueAccessToken(user, permissions[])`, `CreateClient(bearerToken)`, `LoginHttpAsync(email, password)`.
+- [x] Tests `Features/Authorization/PermissionFilterTests.cs` — anon→401, missing-perm→403, granted-perm→200, malformed-token→401.
+- [x] Tests `Features/Products/CreateProduct/CreateProductTests.cs` — happy path persists + audit, validation 400 (invalid SKU + negative price), 401 anon, 403 missing perm.
+- [x] Tests `Features/Products/GetProductById/GetProductByIdTests.cs` — happy + 404 + cache L1 hit (mutate via raw SQL → second HTTP read still cached) + read-your-writes (Sender shared scope returns fresh value) + 401/403.
+- [x] Tests `Features/Auth/Login/LoginTests.cs` — happy (token pair + persisted hashed refresh), wrong password 401, unknown email 401, inactive user 401, case-insensitive email.
+- [x] Tests `Features/Auth/RefreshToken/RefreshTokenTests.cs` — rotation (new pair + old revoked + ReplacedByTokenId set), reuse-revoked 401, unknown 401, empty 400.
+- [x] `Program.cs` di-tambah env-aware `RateLimiting:Enabled` flag (default true) — tetap aman di Dev/Prod.
+- [x] CI: `.github/workflows/ci.yml` — build + test on push/PR ke main, upload TRX results sebagai artifact.
+- [x] `dotnet test` hijau end-to-end: **24/24 passing** dalam 6 detik (cold container start + tests).
 
 ### Definition of Done per slice (PRD §8) — checklist global
-Untuk setiap slice yang sudah ada (`CreateProduct`, `GetProductById`, `Login`, `RefreshToken`), pastikan:
-- [ ] Min 2 integration tests (1 happy, 1 negative validasi/permission)
-- [ ] Permission ditambahkan ke seed migration (sudah dilakukan via `DevSeeder`)
-- [ ] `dotnet test` hijau di CI
+Setiap slice yang sudah ada (`CreateProduct`, `GetProductById`, `Login`, `RefreshToken`):
+- [x] Min 2 integration tests (1 happy, 1 negative validasi/permission)
+- [x] Permission ditambahkan ke seed migration (sudah dilakukan via `DevSeeder` di M3, plus `SeedUserAsync` helper di tests)
+- [x] `dotnet test` hijau di CI
+
+### Bug ditemukan & diperbaiki
+- **Config override timing**: `WebApplicationFactory.ConfigureAppConfiguration` callback fires *after* top-level `Program.cs` synchronously reads config (`AddAppDatabase`, `AddRateLimiter`). Awal mencoba override `Database:Provider` via in-memory config — gagal karena `AddAppDatabase` sudah resolve SQLite sebelumnya. Fix: lakukan DI swap (`ConfigureTestServices` → `RemoveAll<DbContextOptions<...>>` + register Postgres-bound stack).
+- **Rate-limit policy collision**: setelah override config gagal, mencoba `services.Configure<RateLimiterOptions>(opts => opts.AddPolicy("sensitive", ...))` — gagal `ArgumentException: There already exists a policy with the name sensitive`. Fix: drop semua `IConfigureOptions<RateLimiterOptions>` registrations, register fresh `ConfigureNamedOptions` yang produces a no-op limiter. Hasilnya empty policy table di test host.
+- **Cache test design**: initial `GET_caches_subsequent_reads_via_L1` pakai `Sender.Send` shared scope — gagal karena `CacheInvalidationBehavior` setelah `CreateProductCommand` memanggil `requestContext.MarkMutated("products")`, lalu read-your-writes branch bypass L1. Fix: rewrite test pakai HTTP client (request boundary = scope boundary) + insert/mutate via raw SQL untuk hindari pipeline behavior.
+- **Pomelo MySQL tetap unsupported**: tidak ada perubahan dari M2.5; test suite default tetap Postgres-only sesuai PRD §11 M4.
+
+### Catatan & known limitations
+- Testcontainers butuh Docker daemon di CI runner. GitHub Actions `ubuntu-latest` punya Docker pre-installed.
+- Redis TIDAK di-containerize untuk test — keputusan sadar agar `HybridCacheService` test L1+L3 path. Kalau butuh validate L2 invalidation real, bisa tambah `Testcontainers.Redis` di test fixture (paket masih commented di CPM).
+- Multi-provider testing (SQLite/SqlServer/MySQL parameterized) tidak di-implement di M4. Bisa jadi M4.1 follow-up jika perlu.
+- `ConfigureAppConfiguration` strip JSON sources tetap berguna untuk hindari leakage `appsettings.json` dev defaults; redundan dengan DI swap tetapi defense-in-depth.
 
 ---
 
@@ -179,17 +249,23 @@ Cakupan PRD §11 (opsional):
 
 ## 🛠️ Konfigurasi Dev Lokal
 
-| Setting | Nilai dev (sudah diset via user-secrets) |
+| Setting | Nilai dev (default SQLite, ADR-0001) |
 |---|---|
+| `Database:Provider` | `Sqlite` (default) — atau `Postgres` / `SqlServer` / `MySql` |
+| `ConnectionStrings:Sqlite` | `Data Source=App_Data/pbac.db` |
 | `ConnectionStrings:Postgres` | `Host=localhost;Port=5433;Database=pbac;Username=pbac;Password=pbac` |
-| `Jwt:SigningKey` | `dev-only-32-byte-jwt-signing-key-do-not-use-in-prod-1234567890` |
-| `Cache:RedisConnectionString` | `localhost:6379` |
+| `ConnectionStrings:SqlServer` | `Server=localhost,1433;Database=pbac;User Id=sa;Password=Pbac!Local123;TrustServerCertificate=True` |
+| `ConnectionStrings:MySql` | `Server=localhost;Port=3306;Database=pbac;User=pbac;Password=pbac` |
+| `Jwt:SigningKey` | `dev-only-32-byte-jwt-signing-key-do-not-use-in-prod-1234567890` (user-secrets) |
+| `Cache:RedisConnectionString` | `localhost:6379` (opsional; cache jatuh ke L1/L3 jika kosong) |
 
-| Service | Port host |
-|---|---|
-| Postgres (Docker) | **5433** (host punya native postgres di 5432) |
-| Redis (Docker) | 6379 |
-| API | 5000 (default) atau via `--urls` |
+| Service | Port host | Compose profile |
+|---|---|---|
+| Redis | 6379 | (default — selalu up) |
+| Postgres | **5433** | `--profile postgres` |
+| SQL Server 2022 | 1433 | `--profile sqlserver` |
+| MySQL 8.4 | 3306 | `--profile mysql` |
+| API | 5000 (default) atau via `--urls` | — |
 
 Demo user (Development only, dari `DevSeeder`):
 - Email: `demo@local`

@@ -8,7 +8,7 @@ namespace Api.Infrastructure.Data;
 /// <summary>
 /// Application <see cref="DbContext"/>.
 ///
-/// Per PRD v2.1 §6 directive #3, EF Core handles <em>command</em> paths
+/// Per PRD v2.2 §6 directive #3, EF Core handles <em>command</em> paths
 /// (insert / update / delete). Read-side queries go through
 /// <see cref="IDbConnectionFactory"/> (Dapper).
 ///
@@ -16,11 +16,33 @@ namespace Api.Infrastructure.Data;
 /// soft-delete flag (<see cref="SoftDeletableEntity.IsDeleted"/>) are
 /// auto-stamped during <see cref="SaveChangesAsync"/> using the ambient
 /// <see cref="IRequestContext"/> — see PRD §9.6.
+///
+/// This class is <strong>not sealed</strong> so per-provider design-time
+/// subclasses (<c>SqliteDbContext</c>, <c>SqlServerDbContext</c>,
+/// <c>MySqlDbContext</c>) can bind their own EF Core migrations and model
+/// snapshots while sharing the same runtime model — see ADR-0001.
 /// </summary>
-public sealed class AppDbContext(
-    DbContextOptions<AppDbContext> options,
-    IRequestContext requestContext) : DbContext(options)
+public class AppDbContext : DbContext
 {
+    private readonly IRequestContext _requestContext;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, IRequestContext requestContext)
+        : base(options)
+    {
+        _requestContext = requestContext;
+    }
+
+    /// <summary>
+    /// Constructor for per-provider design-time subclasses (ADR-0001).
+    /// Accepts a non-generic <see cref="DbContextOptions"/> so a subclass with
+    /// its own <c>DbContextOptions&lt;TSubclass&gt;</c> can chain through.
+    /// </summary>
+    protected AppDbContext(DbContextOptions options, IRequestContext requestContext)
+        : base(options)
+    {
+        _requestContext = requestContext;
+    }
+
     public DbSet<Product> Products => Set<Product>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Permission> Permissions => Set<Permission>();
@@ -43,7 +65,7 @@ public sealed class AppDbContext(
     private void StampAuditFields()
     {
         var nowUtc = DateTime.UtcNow;
-        var actor = requestContext.UserId;
+        var actor = _requestContext.UserId;
 
         foreach (var entry in ChangeTracker.Entries())
         {
