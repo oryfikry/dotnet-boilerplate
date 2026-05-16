@@ -1,5 +1,6 @@
 using Api.Common.Endpoints;
 using Api.Common.Responses;
+using Api.Infrastructure.Security;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -10,10 +11,13 @@ public sealed class GetProductByIdEndpoint : IEndpoint
     public static void MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet("/api/v1/products/{id:guid}", HandleAsync)
+           .RequirePermission("products.read")
            .AddEndpointFilter<ApiResponseEndpointFilter>()
            .WithName("GetProductById")
            .WithTags("Products")
            .Produces<ApiResponse<ProductDto>>(StatusCodes.Status200OK)
+           .ProducesProblem(StatusCodes.Status401Unauthorized)
+           .ProducesProblem(StatusCodes.Status403Forbidden)
            .ProducesProblem(StatusCodes.Status404NotFound);
     }
 

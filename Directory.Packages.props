@@ -29,19 +29,18 @@
     <PackageVersion Include="Dapper" Version="2.1.66" />
   </ItemGroup>
 
-  <!--
-    Reserved for Milestones 3–5. Uncomment per milestone PR.
-
   <ItemGroup Label="Cache / Resilience (Milestone 3)">
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.0" />
     <PackageVersion Include="Polly" Version="8.5.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.0.0" />
+    <PackageVersion Include="Polly.Extensions" Version="8.5.0" />
   </ItemGroup>
 
   <ItemGroup Label="Auth (Milestone 3)">
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
   </ItemGroup>
+
+  <!--
+    Reserved for Milestones 4–5. Uncomment per milestone PR.
 
   <ItemGroup Label="Health Checks (Milestone 5)">
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />

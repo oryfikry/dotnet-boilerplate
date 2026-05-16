@@ -1,3 +1,4 @@
+using Api.Common.Caching;
 using MediatR;
 
 namespace Api.Features.Products.CreateProduct;
@@ -6,6 +7,7 @@ namespace Api.Features.Products.CreateProduct;
 /// Command to create a new <see cref="Infrastructure.Data.Entities.Product"/>.
 /// PRD v2.1 §7.2 — canonical slice template.
 /// </summary>
+[InvalidatesCache("products")]
 public sealed record CreateProductCommand(
     string Name,
     string Sku,

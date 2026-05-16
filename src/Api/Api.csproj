@@ -33,6 +33,16 @@
     <PackageReference Include="Dapper" />
   </ItemGroup>
 
+  <ItemGroup Label="Cache / Resilience (M3)">
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="Polly" />
+    <PackageReference Include="Polly.Extensions" />
+  </ItemGroup>
+
+  <ItemGroup Label="Auth (M3)">
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
   <!-- Expose internal types to the integration test project (added in Milestone 4) -->
   <ItemGroup>
     <InternalsVisibleTo Include="Api.IntegrationTests" />
