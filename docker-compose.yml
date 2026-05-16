@@ -1,0 +1,57 @@
+# Local-development orchestration for dotnet-pbac-boilerplate.
+# Start with: docker compose up -d
+# Used by: Postgres (CQRS write/read), Redis (cache), OTel collector.
+#
+# In CI/test runs, prefer Testcontainers (Milestone 4) — this file is for
+# manual local development only.
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: pbac-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pbac
+      POSTGRES_PASSWORD: pbac
+      POSTGRES_DB: pbac
+    ports:
+      - "5432:5432"
+    volumes:
+      - pbac-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pbac -d pbac"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pbac-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - pbac-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Placeholder — OTel collector is wired in Milestone 5.
+  # Uncomment when implementing observability.
+  # otel-collector:
+  #   image: otel/opentelemetry-collector-contrib:0.110.0
+  #   container_name: pbac-otel
+  #   restart: unless-stopped
+  #   command: ["--config=/etc/otel-collector-config.yaml"]
+  #   volumes:
+  #     - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+  #   ports:
+  #     - "4317:4317"  # OTLP gRPC
+  #     - "4318:4318"  # OTLP HTTP
+
+volumes:
+  pbac-postgres-data:
+  pbac-redis-data:
