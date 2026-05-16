@@ -14,10 +14,6 @@
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
   </ItemGroup>
 
-  <!--
-    The following pins are reserved for Milestones 2–5.
-    They are listed but not yet referenced by Api.csproj. Uncomment per milestone PR.
-
   <ItemGroup Label="MediatR / Validation (Milestone 2)">
     <PackageVersion Include="MediatR" Version="12.4.1" />
     <PackageVersion Include="FluentValidation" Version="11.11.0" />
@@ -27,10 +23,14 @@
   <ItemGroup Label="EF Core / Dapper (Milestone 2)">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageVersion Include="Npgsql" Version="10.0.0" />
     <PackageVersion Include="Dapper" Version="2.1.66" />
-    <PackageVersion Include="Npgsql" Version="9.0.2" />
   </ItemGroup>
+
+  <!--
+    Reserved for Milestones 3–5. Uncomment per milestone PR.
 
   <ItemGroup Label="Cache / Resilience (Milestone 3)">
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />

@@ -11,8 +11,26 @@
     <UserSecretsId>dotnet-pbac-boilerplate-api</UserSecretsId>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Label="ASP.NET Core (M1)">
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+
+  <ItemGroup Label="MediatR / Validation (M2)">
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+  </ItemGroup>
+
+  <ItemGroup Label="EF Core / Dapper (M2)">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Dapper" />
   </ItemGroup>
 
   <!-- Expose internal types to the integration test project (added in Milestone 4) -->

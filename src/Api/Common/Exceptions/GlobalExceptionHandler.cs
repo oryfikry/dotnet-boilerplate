@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -11,8 +12,10 @@ namespace Api.Common.Exceptions;
 /// ProblemDetails payload with a stable <c>type</c> URI and a correlation
 /// <c>traceId</c> taken from <see cref="HttpContext.TraceIdentifier"/>.
 ///
-/// Concrete exception type → status code mapping is centralised here so
-/// individual feature handlers never need to deal with HTTP semantics.
+/// FluentValidation <see cref="ValidationException"/> is treated specially:
+/// it produces an <see cref="HttpValidationProblemDetails"/> with per-field
+/// errors, matching the shape that <c>ProducesValidationProblem()</c> declares
+/// in OpenAPI documentation.
 /// </summary>
 internal sealed partial class GlobalExceptionHandler(
     IProblemDetailsService problemDetailsService,
@@ -27,10 +30,14 @@ internal sealed partial class GlobalExceptionHandler(
         ArgumentNullException.ThrowIfNull(httpContext);
         ArgumentNullException.ThrowIfNull(exception);
 
-        var (status, title, type) = MapException(exception);
+        ProblemDetails problem = exception switch
+        {
+            ValidationException ve => BuildValidationProblem(ve, httpContext),
+            _ => BuildGenericProblem(exception, httpContext)
+        };
 
         // Log at the level appropriate to the status class.
-        if (status >= StatusCodes.Status500InternalServerError)
+        if ((problem.Status ?? StatusCodes.Status500InternalServerError) >= StatusCodes.Status500InternalServerError)
         {
             LogUnhandledException(logger, exception, exception.Message);
         }
@@ -39,18 +46,7 @@ internal sealed partial class GlobalExceptionHandler(
             LogHandledDomainException(logger, exception, exception.Message);
         }
 
-        httpContext.Response.StatusCode = status;
-
-        var problem = new ProblemDetails
-        {
-            Status = status,
-            Title = title,
-            Type = type,
-            Detail = env.IsDevelopment() ? exception.ToString() : exception.Message,
-            Instance = httpContext.Request.Path
-        };
-
-        problem.Extensions["traceId"] = httpContext.TraceIdentifier;
+        httpContext.Response.StatusCode = problem.Status ?? StatusCodes.Status500InternalServerError;
 
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
@@ -60,10 +56,45 @@ internal sealed partial class GlobalExceptionHandler(
         });
     }
 
+    private static HttpValidationProblemDetails BuildValidationProblem(
+        ValidationException ve, HttpContext httpContext)
+    {
+        var errors = ve.Errors
+            .GroupBy(f => f.PropertyName)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(f => f.ErrorMessage).ToArray());
+
+        var problem = new HttpValidationProblemDetails(errors)
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "One or more validation errors occurred.",
+            Type = "https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.1",
+            Instance = httpContext.Request.Path
+        };
+        problem.Extensions["traceId"] = httpContext.TraceIdentifier;
+        return problem;
+    }
+
+    private ProblemDetails BuildGenericProblem(Exception exception, HttpContext httpContext)
+    {
+        var (status, title, type) = MapException(exception);
+
+        var problem = new ProblemDetails
+        {
+            Status = status,
+            Title = title,
+            Type = type,
+            Detail = env.IsDevelopment() ? exception.ToString() : exception.Message,
+            Instance = httpContext.Request.Path
+        };
+        problem.Extensions["traceId"] = httpContext.TraceIdentifier;
+        return problem;
+    }
+
     private static (int Status, string Title, string Type) MapException(Exception ex) =>
         ex switch
         {
-            // Add more domain exceptions here as the codebase grows.
             ArgumentException        => (StatusCodes.Status400BadRequest,
                                          "Bad Request",
                                          "https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.1"),

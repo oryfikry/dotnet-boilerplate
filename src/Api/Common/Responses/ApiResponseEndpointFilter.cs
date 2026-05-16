@@ -23,20 +23,42 @@ internal sealed class ApiResponseEndpointFilter : IEndpointFilter
         var result = await next(context);
         var traceId = context.HttpContext.TraceIdentifier;
 
-        // Already-wrapped (returned from handler explicitly)
+        // Unwrap Results<TR1, TR2, ...> discriminated unions to their active
+        // inner result (Ok<T>, NotFound, etc.).
+        result = UnwrapResultsUnion(result);
+
+        // Already-wrapped (returned from handler explicitly).
         if (result is ApiResponse) return result;
         if (result is IValueHttpResult { Value: { } existing } && IsAlreadyWrapped(existing))
         {
             return result;
         }
 
-        // Wrap Ok<T> payloads (the common case)
+        // Wrap Ok<T> / Created<T> / similar single-payload results.
         if (result is IValueHttpResult { Value: { } value })
         {
             return Results.Ok(WrapInResponse(value, traceId));
         }
 
         return result;
+    }
+
+    private static object? UnwrapResultsUnion(object? result)
+    {
+        if (result is null) return null;
+
+        var type = result.GetType();
+        if (!type.IsGenericType) return result;
+
+        var def = type.GetGenericTypeDefinition();
+        if (def.FullName?.StartsWith("Microsoft.AspNetCore.Http.HttpResults.Results`", StringComparison.Ordinal) != true)
+        {
+            return result;
+        }
+
+        // Results<T1, T2, ...> exposes a `Result` property of type IResult.
+        var prop = type.GetProperty("Result");
+        return prop?.GetValue(result) ?? result;
     }
 
     private static bool IsAlreadyWrapped(object value) =>

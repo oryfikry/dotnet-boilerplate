@@ -26,10 +26,12 @@
       Suppressed analyzer rules:
         CS1591  - Missing XML doc comments (until we want full XML docs)
         CA1000  - Static members on generic types — we use ApiResponse<T>.Ok factories intentionally
+        CA1711  - Reserved-suffix names — "Permission" is our authorization domain, not System.Security.Permission
         CA1848  - LoggerMessage delegates — opt-in per-class via [LoggerMessage] source generator
+        CA1861  - Constant array args — auto-emitted by EF Core migrations, not human-edited
         CA2007  - ConfigureAwait — not needed in ASP.NET Core (no SynchronizationContext)
     -->
-    <NoWarn>$(NoWarn);CS1591;CA1000;CA2007</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;CA1000;CA1711;CA1861;CA2007</NoWarn>
 
     <!-- Versioning -->
     <Version>0.1.0</Version>
