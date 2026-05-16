@@ -30,13 +30,11 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Check for SQL literal booleans
-        shell: pwsh
-        run: |
-          $matches = git grep -E '(= TRUE|= FALSE)' -- 'src/Api/Features/**/*.cs' 'src/Api/Infrastructure/**/*.cs'
-          if ($LASTEXITCODE -eq 0) {
-            Write-Error "Found SQL literal TRUE/FALSE in code. Use parameterized predicates (@IsDeleted) for provider portability."
+        run: | # Defaults to bash on ubuntu runners
+          if git grep -qE '(= TRUE|= FALSE)' -- 'src/Api/Features/**/*.cs' 'src/Api/Infrastructure/**/*.cs'; then
+            echo "::error::Found SQL literal TRUE/FALSE in code. Use parameterized predicates (@IsDeleted) for provider portability."
             exit 1
-          }
+          fi
 
       - name: Run integration tests
         env:

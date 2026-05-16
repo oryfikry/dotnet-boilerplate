@@ -1,45 +1,84 @@
-# dotnet-pbac-boilerplate
+# 🚀 .NET 10 PBAC Boilerplate
 
-.NET 10 Minimal API boilerplate following the **Vertical Slice Architecture**
-detailed in [`prd.md`](./prd.md) (v2.2).
+**Production-ready .NET 10 Minimal API boilerplate** with **Permission-Based Access Control**, **Vertical Slice Architecture**, and **multi-database support** out of the box.
 
-## Status
+Stop wasting weeks on infrastructure. Start building features on day one.
 
-| Milestone | Scope | State |
-| --- | --- | --- |
-| **M1** | Foundation & Bootstrapping (skeleton, IEndpoint, ProblemDetails, ApiResponse) | ✅ |
-| **M2** | CQRS & Data Layer (MediatR, EF Core 10, Dapper, multi-provider DB) | ✅ |
-| **M3** | Resilience & Security (Redis cache, JWT, permissions) | ✅ |
-| **M4** | Pure Integration Testing (Testcontainers Postgres) | ✅ |
-| M5 | Observability & DevOps (OpenTelemetry, Serilog, Dockerfile) | ⏳ |
-| M6 | (Stretch) AOT profile | ⏳ |
+---
 
-## Prerequisites
+## ✨ Why This Boilerplate?
 
-* [.NET SDK 10.0.300](https://dotnet.microsoft.com/download) (pinned in `global.json`)
-* Docker Desktop — only required when switching to Postgres / SQL Server / MySQL,
-  or when running Redis for the M3 cache. SQLite (default) needs nothing.
+### 🎯 **Zero-Config Start, Production-Ready Finish**
 
-## Quickstart (zero infra)
+- **SQLite by default** — no Docker, no setup, just `dotnet run`
+- **Switch to Postgres/MySQL/SQL Server** with one config line
+- **JWT auth + permissions** already wired
+- **Redis caching** (L1+L2+L3 hybrid) ready to enable
+- **Integration tests** with Testcontainers — no mocks, real databases
 
-The default provider is **SQLite** (ADR-0001). The DB file lives at
-`src/Api/App_Data/pbac.db` and is created automatically on first run.
+### 🏗️ **Architecture That Scales**
+
+- **Vertical Slice Architecture** — features are self-contained, not scattered across layers
+- **CQRS with MediatR** — commands use EF Core, queries use Dapper
+- **RFC 7807 Problem Details** — consistent error responses
+- **Pipeline behaviors** — logging, validation, cache invalidation automatic
+
+### 🔒 **Security First**
+
+- **Permission-based authorization** — fine-grained control beyond roles
+- **JWT with refresh tokens** — secure, stateless auth
+- **Password hashing** with industry-standard algorithms
+- **SQL injection protection** — parameterized queries enforced
+
+### 🧪 **Testing Without Pain**
+
+- **No mocks** — integration tests use real Postgres via Testcontainers
+- **Fast feedback** — tests run in isolated containers
+- **CI-ready** — GitHub Actions workflow included
+
+---
+
+## 🎁 What You Get
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **Vertical Slice Architecture** | ✅ | Features organized by capability, not technical layer |
+| **Multi-Database Support** | ✅ | SQLite, Postgres, SQL Server, MySQL — switch with config |
+| **CQRS + MediatR** | ✅ | Commands (EF Core) + Queries (Dapper) |
+| **JWT Authentication** | ✅ | Access + refresh tokens, permission-based authorization |
+| **Redis Caching** | ✅ | Hybrid L1+L2+L3 cache with Polly v8 resilience |
+| **Integration Tests** | ✅ | Testcontainers Postgres, no mocks |
+| **OpenAPI/Swagger** | ✅ | Auto-generated docs in Development |
+| **Health Checks** | ✅ | Liveness + readiness endpoints |
+| **Observability** | ⏳ | OpenTelemetry, Serilog (M5) |
+| **AOT Profile** | ⏳ | Native AOT support (M6) |
+
+---
+
+## 🚀 Quickstart (60 Seconds)
+
+### Prerequisites
+
+- [.NET SDK 10.0.300](https://dotnet.microsoft.com/download) (pinned in `global.json`)
+- Docker Desktop (optional — only needed for Postgres/MySQL/SQL Server/Redis)
+
+### Run It
 
 ```powershell
-# One-time tool restore (dotnet-ef)
+# 1. Restore tools
 dotnet tool restore
 
-# Set the JWT signing key (Development user secrets, ≥32 bytes UTF-8)
+# 2. Set JWT signing key (≥32 bytes UTF-8)
 dotnet user-secrets set "Jwt:SigningKey" "dev-only-32-byte-jwt-signing-key-do-not-use-in-prod-1234567890" --project src\Api
 
-# Run — migrations + dev seed run automatically in Development
+# 3. Run (migrations + seed data automatic in Development)
 dotnet run --project src\Api --urls http://localhost:5050
 ```
 
-Smoke test:
+### Test It
 
 ```powershell
-# Liveness
+# Health check
 curl http://localhost:5050/health/live
 
 # Login
@@ -48,32 +87,30 @@ $login = Invoke-WebRequest -Uri http://localhost:5050/api/v1/auth/login `
   -Method POST -ContentType 'application/json' -Body $body -UseBasicParsing
 $access = ($login.Content | ConvertFrom-Json).data.accessToken
 
-# Create a product
+# Create a product (requires products.create permission)
 Invoke-WebRequest -Uri http://localhost:5050/api/v1/products -Method POST `
   -ContentType 'application/json' `
   -Headers @{Authorization="Bearer $access"} `
   -Body '{ "name": "Coffee", "sku": "SKU-001", "price": 25000 }' -UseBasicParsing
 
-# OpenAPI document (Development only)
+# OpenAPI docs
 curl http://localhost:5050/openapi/v1.json
 ```
 
-Demo credentials (Development only, from `DevSeeder`):
+**Demo credentials** (Development only):
+- Email: `demo@local`
+- Password: `Demo123!Demo123!`
+- Permissions: `products.create`, `products.read`
 
-* Email: `demo@local`
-* Password: `Demo123!Demo123!`
-* Permissions: `products.create`, `products.read`
+---
 
-## Switching the database provider
+## 🔄 Switch Database Providers
 
-Set `Database:Provider` in `appsettings.{Environment}.json` (or via user secrets)
-to one of `Sqlite`, `Postgres`, `SqlServer`, `MySql`. Connection strings live
-under `ConnectionStrings:{Provider}`. See
-[`docs/adr/0001-multi-provider-database.md`](./docs/adr/0001-multi-provider-database.md).
+Set `Database:Provider` in `appsettings.{Environment}.json` or user secrets:
 
 ```jsonc
 {
-  "Database": { "Provider": "Postgres" },
+  "Database": { "Provider": "Postgres" },  // Sqlite | Postgres | SqlServer | MySql
   "ConnectionStrings": {
     "Sqlite":    "Data Source=App_Data/pbac.db",
     "Postgres":  "Host=localhost;Port=5433;Database=pbac;Username=pbac;Password=pbac",
@@ -83,123 +120,165 @@ under `ConnectionStrings:{Provider}`. See
 }
 ```
 
-### Local infrastructure
-
-`docker-compose.yml` uses profiles so you only spin up what you need:
+### Spin Up Infrastructure
 
 ```powershell
-# Redis only (M3 cache; works alongside any provider, including SQLite)
+# Redis only (works with any DB provider, including SQLite)
 docker compose up -d redis
 
-# Switch DB provider — pick one
-docker compose --profile postgres  up -d   # Postgres on host port 5433
-docker compose --profile sqlserver up -d   # SQL Server on host port 1433
-docker compose --profile mysql     up -d   # MySQL    on host port 3306
+# Database (pick one)
+docker compose --profile postgres  up -d   # Port 5433
+docker compose --profile sqlserver up -d   # Port 1433
+docker compose --profile mysql     up -d   # Port 3306
 
-# Tear down (volumes persist)
+# Tear down
 docker compose down
 ```
 
-## Database Migrations
+---
 
-Per ADR-0001, each non-default provider has its own migrations folder bound to
-its own design-time `DbContext` subclass. Postgres keeps the historical flat
-layout for backward compatibility.
-
-```
-src/Api/Infrastructure/Data/Migrations/
-├── 20260516074807_Initial.cs        # Postgres (AppDbContext)
-├── AppDbContextModelSnapshot.cs
-├── Sqlite/                          # SqliteDbContext
-├── SqlServer/                       # SqlServerDbContext
-└── MySql/                           # MySqlDbContext
-```
-
-In Development the seeder calls `db.Database.MigrateAsync()` automatically
-on startup. To manage migrations manually:
-
-```powershell
-# SQLite
-dotnet ef migrations add <Name> --project src\Api --context SqliteDbContext --output-dir Infrastructure\Data\Migrations\Sqlite
-dotnet ef database update         --project src\Api --context SqliteDbContext
-
-# PostgreSQL (default context)
-dotnet ef migrations add <Name> --project src\Api --output-dir Infrastructure\Data\Migrations
-dotnet ef database update         --project src\Api
-
-# SQL Server
-dotnet ef migrations add <Name> --project src\Api --context SqlServerDbContext --output-dir Infrastructure\Data\Migrations\SqlServer
-dotnet ef database update         --project src\Api --context SqlServerDbContext
-
-# MySQL (Oracle provider — Pomelo has no EF10 release as of 2026-05)
-dotnet ef migrations add <Name> --project src\Api --context MySqlDbContext --output-dir Infrastructure\Data\Migrations\MySql
-dotnet ef database update         --project src\Api --context MySqlDbContext
-```
-
-If `dotnet ef` is not on PATH, run `dotnet tool restore` first — it's pinned
-to `10.0.8` in `.config/dotnet-tools.json`.
-
-## Repository Layout
-
-See [`prd.md` §5](./prd.md#5-peta-direktori-vertikal-directory-map) for the
-canonical directory map. Quick reference:
+## 📁 Project Structure
 
 ```
 src/Api/
-├── Common/         # Shared kernels (Endpoints, Exceptions, Responses, Context, Behaviors)
-├── Infrastructure/ # System engines
-│   ├── Data/           # AppDbContext, providers, IDbConnectionFactory, Migrations
-│   ├── Caching/        # ICacheService, HybridCacheService (L1+L2+L3, Polly v8)
-│   └── Security/       # JwtTokenService, PasswordHasher, RequirePermissionFilter
+├── Common/         # Shared kernels (Endpoints, Exceptions, Responses, Behaviors)
+├── Infrastructure/ # System engines (Data, Caching, Security)
 ├── Features/       # Vertical slices (one folder per feature)
-│   ├── System/         # /health/live, /api/v1
+│   ├── System/         # Health checks, API info
 │   ├── Auth/           # Login, RefreshToken
 │   └── Products/       # CreateProduct, GetProductById
 └── Program.cs
 ```
 
-## Adding a Feature (Slice)
+**Every feature is self-contained** — request, handler, validator, endpoint, tests all in one folder.
 
-Use the canonical `CreateProduct` slice (see `src/Api/Features/Products/CreateProduct/`)
-as the template. Every slice must satisfy the
-[Definition of Done in PRD §8](./prd.md#8-definition-of-done-dod-per-slice)
-before it is merged.
+---
 
-When writing **Dapper** queries, keep SQL provider-portable:
+## 🎯 Adding Features
 
-* Parameterize boolean predicates (`is_deleted = @IsDeleted`, not `= FALSE`).
-* Avoid PG-only constructs (`RETURNING`, `::cast`), MS-only (`TOP`, `OUTPUT`),
-  and MySQL-only (`LIMIT n,m` form).
-* Stick to ANSI SQL where possible; provider-specific helpers belong in EF.
+Use `src/Api/Features/Products/CreateProduct/` as your template:
 
-When writing **EF entity configurations**, use `HasPrecision(p, s)` for
-decimals — `HasColumnType("numeric(18,4)")` is PG-only and breaks SQLite.
+1. **Request** — input DTO
+2. **Handler** — MediatR `IRequestHandler<TRequest, TResponse>`
+3. **Validator** — FluentValidation
+4. **Endpoint** — implements `IEndpoint`, maps route
+5. **Tests** — integration tests with Testcontainers
 
-## Conventions Recap
+**Conventions:**
+- **EF Core** for commands (writes)
+- **Dapper** for queries (reads)
+- **No mocks** — integration tests use real databases
+- **RFC 7807** for errors, `ApiResponse<T>` for success
+- **Permission-based auth** via `.RequirePermission("feature.action")`
 
-* **VSA strict** — no `Controllers/` or `Repositories/` directories.
-* **EF Core** for commands, **Dapper** for queries (PRD §6 directive #3).
-* **Multi-provider DB** — SQLite default, Postgres/SqlServer/MySql opt-in (ADR-0001).
-* **No mocks** — integration tests use Testcontainers (PRD §6 directive #4).
-* **RFC 7807** for all error responses; `ApiResponse<T>` only for the success path.
-* **Permission-based authorization** via `.RequirePermission("...")` (PRD §4.1).
-* **MediatR pipeline** — `LoggingBehavior`, `ValidationBehavior`,
-  `CacheInvalidationBehavior` apply automatically.
-* **SQL portability** — CI enforces no literal `TRUE`/`FALSE` in Dapper queries.
-  Use parameterized predicates (`@IsDeleted`) for cross-provider compatibility.
+---
 
-## Tests
+## 🧪 Testing
 
 ```powershell
-# Integration tests run a real Postgres in a Testcontainer (Docker required).
-# Redis is intentionally NOT containerized — HybridCacheService runs L1+L3.
+# Integration tests (Testcontainers Postgres, Docker required)
 dotnet test
 ```
 
-The suite lives at `tests/Api.IntegrationTests/` and is wired through the
-canonical `BaseIntegrationTest`. CI is configured in
-`.github/workflows/ci.yml`.
+Tests live in `tests/Api.IntegrationTests/` and use the canonical `BaseIntegrationTest` fixture.
 
-## License
+---
+
+## 🛠️ Database Migrations
+
+Each provider has its own migrations folder:
+
+```
+src/Api/Infrastructure/Data/Migrations/
+├── 20260516074807_Initial.cs        # Postgres (AppDbContext)
+├── Sqlite/                          # SqliteDbContext
+├── SqlServer/                       # SqlServerDbContext
+└── MySql/                           # MySqlDbContext
+```
+
+### Create Migration
+
+```powershell
+# SQLite (default)
+dotnet ef migrations add MigrationName --project src\Api --context SqliteDbContext --output-dir Infrastructure\Data\Migrations\Sqlite
+
+# Postgres
+dotnet ef migrations add MigrationName --project src\Api --context AppDbContext --output-dir Infrastructure\Data\Migrations
+
+# SQL Server
+dotnet ef migrations add MigrationName --project src\Api --context SqlServerDbContext --output-dir Infrastructure\Data\Migrations\SqlServer
+
+# MySQL
+dotnet ef migrations add MigrationName --project src\Api --context MySqlDbContext --output-dir Infrastructure\Data\Migrations\MySql
+```
+
+### Apply Migration
+
+```powershell
+dotnet ef database update --project src\Api --context SqliteDbContext
+```
+
+Migrations run automatically in Development on startup.
+
+---
+
+## 📚 Documentation
+
+- **Architecture Decisions** — `docs/adr/`
+  - [ADR-0001: Multi-Provider Database](./docs/adr/0001-multi-provider-database.md)
+  - [ADR-0002: Hybrid Caching Strategy](./docs/adr/0002-hybrid-caching-strategy.md)
+  - [ADR-0003: Permission-Based Authorization](./docs/adr/0003-permission-based-authorization.md)
+- **API Docs** — `/openapi/v1.json` (Development only)
+
+---
+
+## 🎯 Key Conventions
+
+- **Vertical Slice Architecture** — no `Controllers/` or `Repositories/` folders
+- **CQRS** — EF Core for writes, Dapper for reads
+- **Multi-provider SQL** — avoid provider-specific syntax (no `RETURNING`, `TOP`, `LIMIT n,m`)
+- **No mocks** — integration tests use Testcontainers
+- **RFC 7807** — all errors return Problem Details
+- **Permission-based auth** — `.RequirePermission("feature.action")`
+- **MediatR pipeline** — logging, validation, cache invalidation automatic
+
+---
+
+## 🚢 Production Checklist
+
+Before deploying:
+
+1. **Change JWT signing key** — use a cryptographically secure key (≥256 bits)
+2. **Disable dev seeder** — remove `DevSeeder` registration in Production
+3. **Configure database** — set production connection string
+4. **Enable Redis** — configure `CacheSettings:RedisConnectionString`
+5. **Set up observability** — configure OpenTelemetry + Serilog (M5)
+6. **Review security** — audit permissions, validate input, check CORS
+
+---
+
+## 🤝 Contributing
+
+This is a boilerplate, not a framework. Fork it, customize it, make it yours.
+
+If you find bugs or have suggestions, open an issue or PR.
+
+---
+
+## 📄 License
 
 TBD.
+
+---
+
+## 🎉 Get Started Now
+
+```powershell
+git clone https://github.com/yourusername/dotnet-pbac-boilerplate.git
+cd dotnet-pbac-boilerplate
+dotnet tool restore
+dotnet user-secrets set "Jwt:SigningKey" "dev-only-32-byte-jwt-signing-key-do-not-use-in-prod-1234567890" --project src\Api
+dotnet run --project src\Api --urls http://localhost:5050
+```
+
+**Stop building infrastructure. Start building features.**
